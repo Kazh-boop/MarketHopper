@@ -1,7 +1,8 @@
 import { useSettings } from '@/context/SettingsContext';
-import { translations } from './translations';
 
-export function useTranslation() {
-    const { language } = useSettings();
-    return translations[language];
+import { translations, type Translation } from './translations';
+
+export function useTranslation(): Translation {
+    const { settings } = useSettings();
+    return translations[settings.language];
 }

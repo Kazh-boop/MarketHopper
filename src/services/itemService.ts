@@ -1,32 +1,37 @@
 import { IS_MOCK } from '@/config/env';
-import { MOCK_ITEMS } from '@/mocks/itemsMock';
+import type { Language } from '@/i18n/translations';
+import { searchMockItems } from '@/mocks/itemsMock';
 import { itemRepository } from '@/repositories/itemRepository';
-import { Item } from '@/types/item';
+import type { ItemSearchPage } from '@/types/item';
+
+export const MIN_SEARCH_LENGTH = 2;
+
+const EMPTY_PAGE: ItemSearchPage = { items: [], nextCursor: null };
+
+export function normalizeSearchQuery(query: string): string {
+    return query.trim().replace(/\s+/g, ' ');
+}
+
+export function isSearchQueryValid(query: string): boolean {
+    return normalizeSearchQuery(query).length >= MIN_SEARCH_LENGTH;
+}
 
 /**
- * Service de recherche d'objets.
- * Valide la requête, aiguille le flux (Mock ou API) et normalise les données pour l'UI.
+ * Searches marketable items by name.
+ * Routes to the mock data or to XIVAPI depending on the configuration.
  */
-export const searchItems = async (query: string): Promise<Item[]> => {
-    if (!query || query.trim().length < 2) {
-        return [];
+export async function searchItems(
+    query: string,
+    language: Language,
+    cursor: string | null = null,
+): Promise<ItemSearchPage> {
+    if (!cursor && !isSearchQueryValid(query)) {
+        return EMPTY_PAGE;
     }
-
-    const normalizedQuery = query.toLowerCase().trim();
-    let rawData: any[] = [];
+    const normalizedQuery = normalizeSearchQuery(query);
 
     if (IS_MOCK) {
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulation latence réseau
-
-        rawData = MOCK_ITEMS.filter(item =>
-            item.name.toLowerCase().includes(normalizedQuery)
-        );
-    } else {
-        try {
-            rawData = await itemRepository.search(normalizedQuery);
-        } catch (error) {
-            return [];
-        }
+        return searchMockItems(normalizedQuery, cursor);
     }
-    return rawData;
-};
+    return itemRepository.search({ query: normalizedQuery, language, cursor });
+}

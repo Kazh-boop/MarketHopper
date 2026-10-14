@@ -1,26 +1,31 @@
-import { xivapiClient } from '@/api/axiosClient';
-import { Item } from '@/types/item';
-import { mapXIVAPIItem } from '@/mapper/xivapi';
-import { ItemSearchResultResponse, ItemSearchResult } from '@/types/xivapi';
+import { xivapiClient } from '@/api/httpClient';
+import { buildItemSearchQuery, mapXivapiItem } from '@/mappers/xivapiMapper';
+import type { ItemSearchPage } from '@/types/item';
+import type { XivapiLanguage, XivapiSearchResponse } from '@/types/xivapi';
 
+export const ITEM_SEARCH_PAGE_SIZE = 20;
+
+const ITEM_FIELDS = 'Name,Icon,Rarity,CanBeHq,LevelItem@as(raw),ItemSearchCategory.Name';
+
+export interface ItemSearchParams {
+    query: string;
+    language: XivapiLanguage;
+    /** Cursor returned by the previous page; when set, `query` is ignored by XIVAPI. */
+    cursor?: string | null;
+}
+
+/** Access to the game items through XIVAPI. */
 export const itemRepository = {
-    /**
-     * Effectue la recherche sur XIVAPI pour récupérer la liste des objets recherchés
-     */
-    search: async (query: string): Promise<Item[]> => {
-        const names = query.split(" ").map(word => `+Name~"${word}"`).join(" ");
-        const complexQuery = `${names} +ItemSearchCategory>=1`
-        const response = await xivapiClient.get(`/search`, {
-            params: {
-                sheets: 'Item',
-                query: complexQuery,
-                limit: 10,
-                language: 'fr',
-                fields: 'Name,ItemSearchCategory.Name,Icon,LevelItem.todo,Rarity'
-            }
-        });
-        const data: ItemSearchResultResponse = response.data || [];
+    async search({ query, language, cursor }: ItemSearchParams): Promise<ItemSearchPage> {
+        const params = cursor ? { cursor } : { sheets: 'Item', query: buildItemSearchQuery(query) };
 
-        return data.results.map((result: ItemSearchResult) => mapXIVAPIItem(result));
-    }
+        const { data } = await xivapiClient.get<XivapiSearchResponse>('/search', {
+            params: { ...params, language, limit: ITEM_SEARCH_PAGE_SIZE, fields: ITEM_FIELDS },
+        });
+
+        return {
+            items: data.results.map(mapXivapiItem),
+            nextCursor: data.next ?? null,
+        };
+    },
 };
