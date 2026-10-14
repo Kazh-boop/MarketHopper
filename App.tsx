@@ -1,42 +1,55 @@
-import 'react-native-gesture-handler';
-import React from 'react';
-import { StatusBar } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { adaptNavigationTheme, Provider as PaperProvider } from 'react-native-paper';
 import {
-    NavigationContainer,
-    DefaultTheme as NavigationDefaultTheme,
     DarkTheme as NavigationDarkTheme,
+    DefaultTheme as NavigationLightTheme,
+    NavigationContainer,
+    type Theme as NavigationTheme,
 } from '@react-navigation/native';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { StatusBar } from 'expo-status-bar';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PaperProvider, type MD3Theme } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { getTheme } from '@/theme/theme';
-import AppNavigator from '@/navigation/AppNavigator';
+import { createQueryClient } from '@/api/queryClient';
+import { ItemCollectionsProvider } from '@/context/ItemCollectionsContext';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
+import { useAppStateFocus } from '@/hooks/useAppStateFocus';
+import AppNavigator from '@/navigation/AppNavigator';
+import { getTheme } from '@/theme/theme';
 
-const { LightTheme, DarkTheme } = adaptNavigationTheme({
-    reactNavigationLight: NavigationDefaultTheme,
-    reactNavigationDark: NavigationDarkTheme,
-});
-
-function AppContent() {
-    const { themeName } = useSettings();
-
-    const paperTheme = getTheme(themeName);
-    const navBase = paperTheme.dark ? DarkTheme : LightTheme;
-
-    const combinedTheme = {
-        ...navBase,
-        ...paperTheme,
+/** Derives the React Navigation theme from the Paper theme so both stay in sync. */
+function createNavigationTheme(paperTheme: MD3Theme): NavigationTheme {
+    const base = paperTheme.dark ? NavigationDarkTheme : NavigationLightTheme;
+    return {
+        ...base,
         colors: {
-            ...navBase.colors,
-            ...paperTheme.colors,
+            ...base.colors,
+            primary: paperTheme.colors.primary,
+            background: paperTheme.colors.background,
+            card: paperTheme.colors.surface,
+            text: paperTheme.colors.onSurface,
+            border: paperTheme.colors.outline,
+            notification: paperTheme.colors.error,
         },
     };
+}
+
+function ThemedApp() {
+    const { settings, isHydrated } = useSettings();
+    const paperTheme = getTheme(settings.themeName);
+    const navigationTheme = useMemo(() => createNavigationTheme(paperTheme), [paperTheme]);
+
+    // Avoid flashing the default theme before the stored preferences are loaded.
+    if (!isHydrated) {
+        return null;
+    }
 
     return (
         <PaperProvider theme={paperTheme}>
-            <StatusBar barStyle={paperTheme.dark ? 'light-content' : 'dark-content'} />
-            <NavigationContainer theme={combinedTheme}>
+            <StatusBar style={paperTheme.dark ? 'light' : 'dark'} />
+            <NavigationContainer theme={navigationTheme}>
                 <AppNavigator />
             </NavigationContainer>
         </PaperProvider>
@@ -44,11 +57,26 @@ function AppContent() {
 }
 
 export default function App() {
+    const [queryClient] = useState(createQueryClient);
+    useAppStateFocus();
+
     return (
-        <SafeAreaProvider>
-            <SettingsProvider>
-                <AppContent />
-            </SettingsProvider>
-        </SafeAreaProvider>
+        <GestureHandlerRootView style={styles.root}>
+            <SafeAreaProvider>
+                <QueryClientProvider client={queryClient}>
+                    <SettingsProvider>
+                        <ItemCollectionsProvider>
+                            <ThemedApp />
+                        </ItemCollectionsProvider>
+                    </SettingsProvider>
+                </QueryClientProvider>
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
     );
 }
+
+const styles = StyleSheet.create({
+    root: {
+        flex: 1,
+    },
+});

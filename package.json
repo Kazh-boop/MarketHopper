@@ -1,30 +1,73 @@
 {
-  "name": "markethopper",
-  "version": "1.0.0",
-  "main": "index.ts",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "dependencies": {
-    "@react-navigation/native": "^7.3.4",
-    "@react-navigation/stack": "^7.10.6",
-    "axios": "^1.18.1",
-    "expo": "~54.0.34",
-    "expo-status-bar": "~3.0.9",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-gesture-handler": "~2.28.0",
-    "react-native-paper": "^5.15.3",
-    "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.16.0"
-  },
-  "private": true,
-  "devDependencies": {
-    "@types/react": "^19.1.10",
-    "@types/react-native": "^0.72.8",
-    "typescript": "^5.9.3"
-  }
+    "name": "markethopper",
+    "version": "1.0.0",
+    "main": "index.ts",
+    "scripts": {
+        "start": "expo start",
+        "android": "expo start --android",
+        "ios": "expo start --ios",
+        "web": "expo start --web",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "validate": "npm run typecheck && npm run lint && npm run test"
+    },
+    "dependencies": {
+        "@expo/metro-runtime": "~6.1.2",
+        "@expo/vector-icons": "^15.0.3",
+        "@react-native-async-storage/async-storage": "2.2.0",
+        "@react-navigation/native": "^7.3.4",
+        "@react-navigation/stack": "^7.10.6",
+        "@tanstack/react-query": "^5.104.2",
+        "axios": "^1.18.1",
+        "expo": "~54.0.34",
+        "expo-asset": "~12.0.13",
+        "expo-constants": "~18.0.13",
+        "expo-font": "~14.0.12",
+        "expo-status-bar": "~3.0.9",
+        "react": "19.1.0",
+        "react-dom": "19.1.0",
+        "react-native": "0.81.5",
+        "react-native-gesture-handler": "~2.28.0",
+        "react-native-paper": "^5.15.3",
+        "react-native-safe-area-context": "~5.6.0",
+        "react-native-screens": "~4.16.0",
+        "react-native-web": "~0.21.0"
+    },
+    "private": true,
+    "devDependencies": {
+        "@testing-library/react-native": "^13.3.3",
+        "@types/jest": "^29.5.14",
+        "@types/react": "^19.1.10",
+        "babel-preset-expo": "~54.0.11",
+        "eslint": "^9.39.5",
+        "eslint-config-expo": "~10.0.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.7",
+        "jest": "^29.7.0",
+        "jest-expo": "~54.0.17",
+        "prettier": "^3.9.10",
+        "react-test-renderer": "^19.1.0",
+        "typescript": "^5.9.3"
+    },
+    "jest": {
+        "preset": "jest-expo",
+        "setupFiles": [
+            "./jest.setup.ts"
+        ],
+        "transformIgnorePatterns": [
+            "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|react-native-vector-icons)"
+        ],
+        "collectCoverageFrom": [
+            "src/**/*.{ts,tsx}",
+            "!src/**/*.d.ts"
+        ],
+        "moduleNameMapper": {
+            "^@/(.*)$": "<rootDir>/src/$1"
+        }
+    }
 }

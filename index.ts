@@ -1,3 +1,6 @@
+// Must be imported first so gestures work in the stack navigator (React Navigation requirement).
+import 'react-native-gesture-handler';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

@@ -1,85 +1,101 @@
-import React, { createContext, useContext, useState } from 'react';
-import type { ThemeName } from '@/theme/theme';
+import React, { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+
+import { STORAGE_KEYS } from '@/constants/storageKeys';
+import type { Region } from '@/constants/universalis';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import type { Language } from '@/i18n/translations';
+import type { ThemeName } from '@/theme/theme';
+import type { MarketScope, Settings } from '@/types/settings';
+import { getMarketScope } from '@/utils/marketScope';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import {
+    createDefaultSettings,
+    parseStoredSettings,
+    selectRegion,
+    toggleDataCenter,
+    toggleWorld,
+} from './settingsState';
 
-export interface UniversalisPrefs {
-    /** 'NA' | 'EU' | 'JP' | 'OC' | '' */
-    region: string;
-    /** e.g. 'Chaos', 'Aether' — empty if none selected */
-    dataCenter: string;
-    /** specific world name — empty if none selected */
-    world: string;
+interface SettingsContextValue {
+    settings: Settings;
+    /** `false` until the stored settings have been loaded. */
+    isHydrated: boolean;
+    /** Market area used to query prices, `null` until the user picks one. */
+    marketScope: MarketScope | null;
+    setThemeName: (themeName: ThemeName) => void;
+    setLanguage: (language: Language) => void;
+    selectRegion: (region: Region) => void;
+    toggleDataCenter: (dataCenter: string) => void;
+    toggleWorld: (world: string) => void;
 }
 
-interface SettingsContextType {
-    themeName: ThemeName;
-    setThemeName: (name: ThemeName) => void;
-    language: Language;
-    setLanguage: (lang: Language) => void;
-    universalisPrefs: UniversalisPrefs;
-    setUniversalisPrefs: (prefs: Partial<UniversalisPrefs>) => void;
-    /** Derived shortcut for components that only need dark/light */
-    isDark: boolean;
-    /** Legacy toggle kept for backward compat — cycles between midnight ↔ parchment */
-    toggleTheme: () => void;
-}
+const SettingsContext = createContext<SettingsContextValue | null>(null);
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = createDefaultSettings();
 
-const SettingsContext = createContext<SettingsContextType>({
-    themeName: 'midnight',
-    setThemeName: () => {},
-    language: 'fr',
-    setLanguage: () => {},
-    universalisPrefs: { region: '', dataCenter: '', world: '' },
-    setUniversalisPrefs: () => {},
-    isDark: true,
-    toggleTheme: () => {},
-});
-
-export const useSettings = () => useContext(SettingsContext);
-
-/** @deprecated Use useSettings instead */
-export const useThemeMode = useSettings;
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
-const DARK_THEMES: ThemeName[] = ['midnight', 'ocean', 'forest', 'crimson'];
-
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
-    const [themeName, setThemeName] = useState<ThemeName>('midnight');
-    const [language, setLanguage] = useState<Language>('fr');
-    const [universalisPrefs, setUniversalisPrefsState] = useState<UniversalisPrefs>({
-        region: '',
-        dataCenter: '',
-        world: '',
-    });
-
-    const setUniversalisPrefs = (prefs: Partial<UniversalisPrefs>) => {
-        setUniversalisPrefsState((prev) => ({ ...prev, ...prefs }));
-    };
-
-    const isDark = DARK_THEMES.includes(themeName);
-
-    const toggleTheme = () =>
-        setThemeName((prev) => (prev === 'midnight' ? 'parchment' : 'midnight'));
-
-    return (
-        <SettingsContext.Provider
-            value={{
-                themeName,
-                setThemeName,
-                language,
-                setLanguage,
-                universalisPrefs,
-                setUniversalisPrefs,
-                isDark,
-                toggleTheme,
-            }}
-        >
-            {children}
-        </SettingsContext.Provider>
+export function SettingsProvider({ children }: { children: ReactNode }) {
+    const [settings, setSettings, isHydrated] = usePersistentState(
+        STORAGE_KEYS.settings,
+        DEFAULT_SETTINGS,
+        parseStoredSettings,
     );
+
+    const setThemeName = useCallback(
+        (themeName: ThemeName) => setSettings((prev) => ({ ...prev, themeName })),
+        [setSettings],
+    );
+    const setLanguage = useCallback(
+        (language: Language) => setSettings((prev) => ({ ...prev, language })),
+        [setSettings],
+    );
+    const handleSelectRegion = useCallback(
+        (region: Region) =>
+            setSettings((prev) => ({ ...prev, market: selectRegion(prev.market, region) })),
+        [setSettings],
+    );
+    const handleToggleDataCenter = useCallback(
+        (dataCenter: string) =>
+            setSettings((prev) => ({ ...prev, market: toggleDataCenter(prev.market, dataCenter) })),
+        [setSettings],
+    );
+    const handleToggleWorld = useCallback(
+        (world: string) =>
+            setSettings((prev) => ({ ...prev, market: toggleWorld(prev.market, world) })),
+        [setSettings],
+    );
+
+    const marketScope = useMemo(() => getMarketScope(settings.market), [settings.market]);
+
+    const value = useMemo<SettingsContextValue>(
+        () => ({
+            settings,
+            isHydrated,
+            marketScope,
+            setThemeName,
+            setLanguage,
+            selectRegion: handleSelectRegion,
+            toggleDataCenter: handleToggleDataCenter,
+            toggleWorld: handleToggleWorld,
+        }),
+        [
+            settings,
+            isHydrated,
+            marketScope,
+            setThemeName,
+            setLanguage,
+            handleSelectRegion,
+            handleToggleDataCenter,
+            handleToggleWorld,
+        ],
+    );
+
+    return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+}
+
+export function useSettings(): SettingsContextValue {
+    const context = useContext(SettingsContext);
+    if (!context) {
+        throw new Error('useSettings must be used within a SettingsProvider');
+    }
+    return context;
 }
